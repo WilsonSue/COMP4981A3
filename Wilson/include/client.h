@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <sys/select.h>
 #define MAXLINE 1024
 #define TENNER 10
 #define TWENNER 20
