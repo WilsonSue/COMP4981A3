@@ -1,4 +1,4 @@
-#ifndef
+#ifndef COMP4981_A3_SERVER_H
 #define COMP4981_A3_SERVER_H
 
 #include <arpa/inet.h>
