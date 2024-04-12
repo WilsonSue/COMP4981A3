@@ -1,38 +1,4 @@
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
-
-#define MAXLINE 64
-#define MAX_PLAYERS 4
-#define TEN 10
-
-// Player structure
-typedef struct
-{
-    int x;
-    int y;
-    int occupied;
-} Player;
-
-// Structure to hold client information
-typedef struct
-{
-    struct sockaddr_in addr;
-    int                player_id;
-} Client;
-
-static Client clients[MAX_PLAYERS];    // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-static int    num_clients = 0;         // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-
-// Function declarations
-void update_position(Player *players, int player_id, int dx, int dy);
-int  assign_position(Player *players);
-int  client_allocator(struct sockaddr_in *cliaddr, Player *players);
-void broadcast(int sockfd, Player *players);
+#include "../include/server.h"
 
 int main(int argc, const char *argv[])
 {
@@ -40,7 +6,7 @@ int main(int argc, const char *argv[])
     struct sockaddr_in servaddr;
     const char        *ip = argv[1];
     char              *endptr;
-    long               port = strtol(argv[2], &endptr, TEN);
+    long               port = strtol(argv[2], &endptr, TENNER);
     Player             players[MAX_PLAYERS];
 
     for(int i = 0; i < MAX_PLAYERS; i++)
@@ -100,18 +66,18 @@ int main(int argc, const char *argv[])
             break;    // Exit the loop if the "quit" message is received
         }
 
-        player_id = client_allocator(&cliaddr, players);
+        player_id = find_or_assign_client(&cliaddr, players);
         if(player_id == -1)
         {
             continue;    // No available positions
         }
 
-        dx = (int)strtol(buffer, &endPtr, TEN);
-        dy = (int)strtol(endPtr, NULL, TEN);
+        dx = (int)strtol(buffer, &endPtr, TENNER);
+        dy = (int)strtol(endPtr, NULL, TENNER);
 
         update_position(players, player_id, dx, dy);
-        printf("player %d pos: (%d, %d)\n", player_id, players[player_id].x, players[player_id].y);
-        broadcast(sockfd, players);
+        printf("Updated player %d position to (%d, %d)\n", player_id, players[player_id].x, players[player_id].y);
+        broadcast_positions(sockfd, players);
     }
 
     close(sockfd);
@@ -119,7 +85,7 @@ int main(int argc, const char *argv[])
 }
 
 // Function to find or assign a client to a player position
-int client_allocator(struct sockaddr_in *cliaddr, Player *players)
+int find_or_assign_client(struct sockaddr_in *cliaddr, Player *players)
 {
     int i;
     // Check if the client is already assigned to a player
@@ -169,7 +135,7 @@ int assign_position(Player *players)
 }
 
 // Function to broadcast player positions to all clients
-void broadcast(int sockfd, Player *players)
+void broadcast_positions(int sockfd, Player *players)
 {
     char message[MAXLINE];
     int  i;
