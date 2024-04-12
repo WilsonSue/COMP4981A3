@@ -1,27 +1,4 @@
-#include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <ncurses.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <time.h>
-#include <unistd.h>
-#define MAXLINE 1024
-#define TEN 10
-#define MAX_PLAYERS 27
-#define TEN_MILL 1000000
-
-typedef struct
-{
-    int x;
-    int y;
-} Player;
-
-void update_positions(const char *message, Player *players, int *num_players);
-void draw_players(Player *players, int num_players);
+#include "../include/client.h"
 
 void update_positions(const char *message, Player *players, int *num_players)
 {
@@ -33,31 +10,33 @@ void update_positions(const char *message, Player *players, int *num_players)
     {
         int newX;
         int newY;
-        newX = (int)strtol(p, &endPtr, TEN);
+        newX = (int)strtol(p, &endPtr, TENNER);
         if(p == endPtr)
         {
             break;
-        }
+        }    // No more numbers to read
         p = endPtr;
 
-        newY = (int)strtol(p, &endPtr, TEN);
+        newY = (int)strtol(p, &endPtr, TENNER);
         if(p == endPtr)
         {
-            break;
+            break;    // No more numbers to read
         }
         p = endPtr;
 
+        // Skip any spaces or commas between numbers
         while(*p == ' ' || *p == ',')
         {
             p++;
         }
 
+        // Update the player's position
         players[i].x = newX;
         players[i].y = newY;
         i++;
     }
 
-    *num_players = i;
+    *num_players = i;    // Update the number of players
 }
 
 void draw_players(Player *players, int num_players)
@@ -65,7 +44,7 @@ void draw_players(Player *players, int num_players)
     clear();
     for(int i = 0; i < num_players; i++)
     {
-        mvprintw(players[i].y, players[i].x, "O");
+        mvprintw(players[i].y, players[i].x, "X");
     }
     refresh();
 }
@@ -75,12 +54,10 @@ int main(int argc, const char *argv[])
     int                sockfd;
     struct sockaddr_in servaddr;
     char               buffer[MAXLINE];
+    ssize_t            n;
     Player             players[MAX_PLAYERS];
-    int                num_players = 0;
+    int                num_players = MAX_PLAYERS;
     long               server_port;
-    int                flags;
-    int                running;
-    struct timespec    delay;
 
     if(argc != 3)
     {
@@ -88,7 +65,7 @@ int main(int argc, const char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    server_port = strtol(argv[2], NULL, TEN);
+    server_port = strtol(argv[2], NULL, TENNER);
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if(sockfd < 0)
@@ -102,35 +79,15 @@ int main(int argc, const char *argv[])
     servaddr.sin_port        = htons((uint16_t)server_port);
     servaddr.sin_addr.s_addr = inet_addr(argv[1]);
 
-    flags = fcntl(sockfd, F_GETFL, 0);
-    if(flags == -1)
-    {
-        perror("fcntl F_GETFL");
-        exit(EXIT_FAILURE);
-    }
-
-    if(fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1)
-    {
-        perror("fcntl F_SETFL O_NONBLOCK");
-        exit(EXIT_FAILURE);
-    }
-
+    // Initialize ncurses
     initscr();
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
-    nodelay(stdscr, TRUE);
 
-    running = 1;
-
-    delay.tv_sec  = 0;
-    delay.tv_nsec = (__syscall_slong_t)TEN * TEN_MILL;
-
-    while(running)
+    while(1)
     {
-        ssize_t n;
-
-        int ch = getch();
+        int ch = getch();    // Get the arrow key press
 
         switch(ch)
         {
@@ -147,39 +104,29 @@ int main(int argc, const char *argv[])
                 snprintf(buffer, MAXLINE, "1 0");
                 break;
             case 'q':
-                running = 0;
-                break;
+                goto end;    // Quit
             default:
-                break;    // No need for 'continue' here
+                continue;    // Ignore other keys
         }
 
-        if(ch != ERR)
-        {    // Only send if a key was pressed
-            if(sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
-            {
-                perror("sendto failed");
-                break;
-            }
+        printf("Sending: %s\n", buffer);
+        if(sendto(sockfd, buffer, strlen(buffer), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+        {
+            perror("sendto failed");
+            break;
         }
 
-        // Continuously check for incoming data
-        while((n = recvfrom(sockfd, buffer, MAXLINE, 0, NULL, NULL)) > 0)
+        n = recvfrom(sockfd, buffer, MAXLINE, 0, NULL, NULL);
+        if(n > 0)
         {
             buffer[n] = '\0';
             update_positions(buffer, players, &num_players);
             draw_players(players, num_players);
         }
-
-        if(n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK))
-        {
-            perror("recvfrom failed");
-            break;
-        }
-
-        nanosleep(&delay, NULL);
     }
 
-    endwin();
+end:
+    endwin();    // End ncurses mode
     close(sockfd);
     return 0;
 }
