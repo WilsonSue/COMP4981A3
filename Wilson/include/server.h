@@ -1,17 +1,17 @@
-#ifndef COMP4981_ASS3_SERVER_H
-    #define COMP4981_ASS3_SERVER_H
+#ifndef
+#define COMP4981_A3_SERVER_H
 
-    #include <arpa/inet.h>
-    #include <netinet/in.h>
-    #include <stdio.h>
-    #include <stdlib.h>
-    #include <string.h>
-    #include <sys/socket.h>
-    #include <unistd.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
-    #define MAXLINE 64
-    #define MAX_PLAYERS 4
-    #define TENNER 10
+#define MAXLINE 64
+#define MAX_PLAYERS 4
+#define TENNER 10
 
 // Player structure
 typedef struct
@@ -37,7 +37,4 @@ int  assign_position(Player *players);
 int  find_or_assign_client(struct sockaddr_in *cliaddr, Player *players);
 void broadcast_positions(int sockfd, Player *players);
 
-#endif    // COMP4981_ASS3_SERVER_H
-
-// #define TWENNER 20
-// #define TWENNYSEVEN 27
+#endif
